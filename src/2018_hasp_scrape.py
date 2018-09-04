@@ -17,7 +17,7 @@ import logging
 # Declare constants
 
 # ///Change DIRECTORY to use this script///
-DIRECTORY = "/home/andrew/HASP 2018/HASP-RTP/src"
+DIRECTORY = "/home/kevin/UH-Undergrad/UH-MiniPix-Collaboration/2018/HASP-RTP/src"
 # ///Change DIRECTORY to use this script///
 
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
@@ -26,7 +26,7 @@ FLIGHT_BEGIN = "09/01/18 2:00:00"
 FLIGHT_BEGIN_DT = datetime.strptime(FLIGHT_BEGIN, "%m/%d/%y %I:%M:%S")
 WAIT_TIME = 60 # Number of seconds between new packet checks
 
-PACKET_STRUCTURE = ['mp_temp', 'rpi_temp', 'counts', 'dose', 'frame', 'zero', 'time']
+PACKET_STRUCTURE = ['mp_temp (C)', 'rpi_temp (C)', 'counts', 'dose (uGy/min)', 'frame', 'zero', 'time']
 
 PLOT_SQUARE_SIZE = int(np.ceil(np.sqrt(len(PACKET_STRUCTURE) - 3)))
 
