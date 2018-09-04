@@ -17,7 +17,7 @@ import logging
 # Declare constants
 
 # ///Change DIRECTORY to use this script///
-DIRECTORY = "/home/kevin/UH-Undergrad/UH-MiniPix-Collaboration/2018/HASP-RTP/src"
+DIRECTORY = "/home/reed/Desktop/hasp/2018/HASP-RTP"
 # ///Change DIRECTORY to use this script///
 
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
@@ -349,6 +349,11 @@ def end_log_e(e, packet_name):
 if __name__  == "__main__":
     try:
         create_dirs()
+
+        # Delete any preexisting raw files
+        dir_files = os.listdir(DIRECTORY + "/2018_raw_files")
+        for f in dir_files:
+            os.remove(DIRECTORY + "/2018_raw_files/" + f)
         
         # Setup logger
         logging.basicConfig(level = logging.DEBUG,
