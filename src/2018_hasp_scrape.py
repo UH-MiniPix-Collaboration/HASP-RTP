@@ -151,6 +151,9 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
         logging.info("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds..\n")
         #time.sleep(WAIT_TIME) # Wait before checking for a new/updated packet 
         #end_log_e(None, None) # I didn't want to create a new function to end the program, so I cheated by using end_log_e()
+
+        # Sleeping in the main thread messes with the qt event loop
+        # This loop allows plots to remain responsive while waiting for new packets
         for _ in range(1000):
             plt.pause(WAIT_TIME/1000)
         return None, None
