@@ -17,14 +17,14 @@ import logging
 # Declare constants
 
 # ///Change DIRECTORY to use this script///
-DIRECTORY = "/home/reed/Desktop/hasp/2018/hasp_scrape"
+DIRECTORY = "/home/andrew/HASP 2018/HASP-RTP/src"
 # ///Change DIRECTORY to use this script///
 
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
 url = "https://laspace.lsu.edu/hasp/groups/2018/data/data.php?pname=Payload_12&py=2018"
 FLIGHT_BEGIN = "09/01/18 2:00:00"
 FLIGHT_BEGIN_DT = datetime.strptime(FLIGHT_BEGIN, "%m/%d/%y %I:%M:%S")
-WAIT_TIME = 10 # Number of seconds between new packet checks
+WAIT_TIME = 60 # Number of seconds between new packet checks
 
 PACKET_STRUCTURE = ['mp_temp', 'rpi_temp', 'counts', 'dose', 'frame', 'zero', 'time']
 
@@ -149,9 +149,10 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
 
     if (set(packet_list).issubset(dir_files)) or packet_list == []: # Checks if new packets need to be downloaded
         logging.info("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds..\n")
-        time.sleep(WAIT_TIME) # Wait before checking for a new/updated packet 
+        #time.sleep(WAIT_TIME) # Wait before checking for a new/updated packet 
         #end_log_e(None, None) # I didn't want to create a new function to end the program, so I cheated by using end_log_e()
-        
+        for _ in range(1000):
+            plt.pause(WAIT_TIME/1000)
         return None, None
 
     else:
