@@ -17,12 +17,12 @@ import logging
 # Declare constants
 
 # ///Change DIRECTORY to use this script///
-DIRECTORY = "/home/reed/Desktop/hasp/2018/HASP-RTP"
+DIRECTORY = "/home/sam/HASP-RTP"
 # ///Change DIRECTORY to use this script///
 
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
 url = "https://laspace.lsu.edu/hasp/groups/2018/data/data.php?pname=Payload_12&py=2018"
-FLIGHT_BEGIN = "09/02/18 2:00:00"
+FLIGHT_BEGIN = "09/04/18 7:20:00"
 FLIGHT_BEGIN_DT = datetime.strptime(FLIGHT_BEGIN, "%m/%d/%y %I:%M:%S")
 WAIT_TIME = 60 # Number of seconds between new packet checks
 
