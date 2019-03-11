@@ -1,46 +1,69 @@
-from requests import get
-from requests.exceptions import RequestException
-from contextlib import closing
-from bs4 import BeautifulSoup
-from datetime import datetime
-from struct import *
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.animation as animation
+import matplotlib.backends.tkagg as tkagg
+import tkinter as tk
 import numpy as np
 import urllib
 import os
 import time
 import sys
 import logging
+import threading
+from requests import get
+from requests.exceptions import RequestException
+from contextlib import closing
+from bs4 import BeautifulSoup
+from datetime import datetime
+from struct import *
+from matplotlib import style
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+#from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+from matplotlib.figure import Figure
+from tkinter import *
+
+
+#style.use("ggplot")
 
 # Declare constants
-
-# ///Change DIRECTORY to use this script///
-DIRECTORY = "/home/reed/Desktop/hasp/2018/HASP-RTP"
-# ///Change DIRECTORY to use this script///
-
+DIRECTORY = os.getcwd()
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
 url = "https://laspace.lsu.edu/hasp/groups/2018/data/data.php?pname=Payload_12&py=2018"
-FLIGHT_BEGIN = "09/02/18 2:00:00"
+FLIGHT_BEGIN = "09/02/18 8:00:00"
 FLIGHT_BEGIN_DT = datetime.strptime(FLIGHT_BEGIN, "%m/%d/%y %I:%M:%S")
 WAIT_TIME = 60 # Number of seconds between new packet checks
-
 PACKET_STRUCTURE = ['mp_temp (C)', 'rpi_temp (C)', 'counts', 'dose (uGy/min)', 'frame', 'zero', 'time']
-
 PLOT_SQUARE_SIZE = int(np.ceil(np.sqrt(len(PACKET_STRUCTURE) - 3)))
 
 # Plotting objects
 fig = plt.gcf()
 # fig.patch.set_facecolor('xkcd:grey') # Changes color of the GUI background
-fig.set_size_inches(24, 20)
-fig.show()
-
+fig.set_size_inches(12, 10)
+#fig.show()
+plt.rcParams.update({'font.size': 24})
 cmap = plt.cm.get_cmap("gist_rainbow", len(PACKET_STRUCTURE))
 hasp_data = []
 plot_list = []
 
-# Prvents plots being made for packet num and timestamp
+def doNothing():
+    print('Okay.')
+
+# tkinter objects
+width, height = 200, 100
+window = tk.Tk()
+tcanvas = FigureCanvasTkAgg(fig, window)
+
+# Create the tkinter drop-down menu
+menu = Menu(window)
+window.config(menu=menu)
+toolsMenu = Menu(menu)
+menu.add_cascade(label='Tools', menu=toolsMenu)
+toolsMenu.add_command(label='Send Command', command=doNothing)
+toolsMenu.add_separator()
+toolsMenu.add_command(label='Exit', command=doNothing)
+
+# Prevents plots being made for packet num and timestamp
 for i in range(1, len(PACKET_STRUCTURE) + 1):
     if i == 5 or i == 6 or i == 7:
         continue
@@ -149,13 +172,19 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
 
     if (set(packet_list).issubset(dir_files)) or packet_list == []: # Checks if new packets need to be downloaded
         logging.info("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds..\n")
-        #time.sleep(WAIT_TIME) # Wait before checking for a new/updated packet 
+        for _ in range(1000):
+            window.update()
+            time.sleep(WAIT_TIME/1000) # Wait before checking for a new/updated packet 
         #end_log_e(None, None) # I didn't want to create a new function to end the program, so I cheated by using end_log_e()
 
         # Sleeping in the main thread messes with the qt event loop
         # This loop allows plots to remain responsive while waiting for new packets
-        for _ in range(1000):
-            plt.pause(WAIT_TIME/1000)
+
+        # I commented this out because I'm now using tkinter to display the plots, so plt.pause() shouldn't
+        # be needed anymore. In addition, there was an incompatibility
+        #for _ in range(1000):
+        #    plt.pause(WAIT_TIME/1000)
+
         return None, None
 
     else:
@@ -171,6 +200,18 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
         return new_packet_list, new_url_list
 
 
+def download(link, fileLocation, fileSize):
+    logging.info("Downloading " + fileLocation.split('/')[-1] + " [" + fileSize + "]...")
+    res = urllib.request.urlopen(link)
+    raw = open(DIRECTORY + "/2018_raw_files/" + fileLocation.split('/')[-1], "wb")
+    raw.write(res.read())
+    raw.close()
+    logging.info(fileLocation.split('/')[-1] + " done")
+
+def newDownloadThread(link, fileLocation, fileSize):
+    download_thread = threading.Thread(target=download, args=(link,fileLocation,fileSize))
+    download_thread.start()
+    
 def download_data(packet_list, packet_urls):
 
     logging.info("Downloading packets...\n")
@@ -179,19 +220,24 @@ def download_data(packet_list, packet_urls):
             packet = packet.split(",")
             packet_name = packet[0]
             packet_size = packet[1] 
-
-            logging.info("Downloading " + packet_name + " [" + packet_size + "]...")
-            res = urllib.request.urlopen(packet_urls[i])
-            raw = open(DIRECTORY + "/2018_raw_files/" + packet_name, "wb")
-            raw.write(res.read())
-            raw.close()
-            plot_data(packet_name)
-            fig.canvas.draw()
-
-            time.sleep(0.1) # Small delay to prevent server spamming
-
+            newDownloadThread(packet_urls[i], DIRECTORY + '/2018_raw_files/' + packet_name, packet_size)
+            #logging.info("Downloading " + packet_name + " [" + packet_size + "]...")
+            #res = urllib.request.urlopen(packet_urls[i])
+            #raw = open(DIRECTORY + "/2018_raw_files/" + packet_name, "wb")
+            #raw.write(res.read())
+            #raw.close()
+            
         except Exception as e:
             end_log_e(e, packet_name)
+
+    time.sleep(1)
+    for i, packet in enumerate(packet_list):            
+            plot_data(packet.split(',')[0])
+
+            #time.sleep(0.1) # Small delay to prevent server spamming
+
+        #except Exception as e:
+          #  end_log_e(e, packet_name)
 
     # Save plot once completed
     fig.savefig(PLOT_PATH, bbox_inches='tight')
@@ -253,11 +299,17 @@ def plot_data(packet_name):
                     sensor_plot.set_ylabel(PACKET_STRUCTURE[i])
                     sensor_plot.set_xlim(0, max(hasp_data[0].get_xdata()))
                     sensor_plot.set_ylim(min(hasp_data[i].get_ydata()) * 0.9, max(hasp_data[i].get_ydata()) * 1.1)
-                    
-                fig.tight_layout()
+                    window.update()
                 
+                fig.tight_layout()                
                 fig.canvas.flush_events()
                 fig.canvas.draw()
+                
+                tcanvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH)#.grid(row=0, column=2, sticky='E')
+                tcanvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)#.grid(row=0, column=2, sticky='E')#
+
+                window.update_idletasks()
+                window.update()
                 
                 # Empty new_data after every plot update
                 new_data = []
@@ -316,14 +368,13 @@ def get_data():
 
         # Get list of new .raw files and their urls
         data_packets, urls = get_new_packets(data_packets, urls, directory_files, last_packet)
-        
+
         # Download the new .raw files
         if data_packets != None and urls != None:
             download_data(data_packets, urls)
-
-        fig.tight_layout()
-        fig.canvas.flush_events()
-        fig.canvas.draw()
+        #fig.tight_layout()
+        #fig.canvas.flush_events()
+        #fig.canvas.draw()
         
 
 # Ends the log with exception e
@@ -378,7 +429,7 @@ if __name__  == "__main__":
 
         while True:
             get_data()
-        
+            
         logging.info("------------------------------------------------------------")
         logging.info("------------------------------------------------------------")
         logging.info("END LOG")
