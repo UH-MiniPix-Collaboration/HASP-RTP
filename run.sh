@@ -1,1 +1,1 @@
-python3 src/2018_hasp_scrape.py
+python3 src/hasp-scrape.py

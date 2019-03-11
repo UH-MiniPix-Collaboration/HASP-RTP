@@ -57,14 +57,15 @@ def toolsMenuSendCommand():
     if command in ACCEPTED_COMMANDS:
         answer = messagebox.askyesno('Confirm','Confirm command: ' + command) # Open new box to confirm choice
         if answer: # answer is a bool
-            # Upload the command to the HASP spreadsheet
+            # Upload the command to the HASP spreadsheet. For now it will send to a dummy sheet.
+            os.system('python ' + DIRECTORY + '/src/send-command.py ' + command) # Had to do this bc Google Sheets API does not work with Python3
             logging.info('Sent command: \'' + command + '\'')
             statusText.set('Sent command: \'' + command + '\'')
-            toolsMenuDoNothing()
     else:
         logging.info('Command not recognized: \'' + command + '\'')
         statusText.set('Command not recognized: \'' + command + '\'')
-
+        messagebox.showwarning("Warning", "Command not recognized.")
+        
 def toolsMenuSavePlots():
     fig.savefig(PLOT_PATH, bbox_inches='tight')
     logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
