@@ -24,8 +24,6 @@ from matplotlib.figure import Figure
 from tkinter import *
 
 
-#style.use("ggplot")
-
 # Declare constants
 DIRECTORY = os.getcwd()
 PLOT_PATH = DIRECTORY + "/2018_analysis/plots.pdf"
@@ -36,18 +34,45 @@ WAIT_TIME = 60 # Number of seconds between new packet checks
 PACKET_STRUCTURE = ['mp_temp (C)', 'rpi_temp (C)', 'counts', 'dose (uGy/min)', 'frame', 'zero', 'time']
 PLOT_SQUARE_SIZE = int(np.ceil(np.sqrt(len(PACKET_STRUCTURE) - 3)))
 
+ACCEPTED_COMMANDS = ['0x01', '0x02', '0x03'] # These are currently dummy commands
+
 # Plotting objects
 fig = plt.gcf()
 # fig.patch.set_facecolor('xkcd:grey') # Changes color of the GUI background
+#style.use("ggplot")
 fig.set_size_inches(12, 10)
 #fig.show()
 plt.rcParams.update({'font.size': 24})
 cmap = plt.cm.get_cmap("gist_rainbow", len(PACKET_STRUCTURE))
 hasp_data = []
 plot_list = []
+threadList = []
 
-def doNothing():
+
+# Tkinter tool commands
+def toolsMenuDoNothing():
     print('Okay.')
+
+def toolsMenuSendCommand():
+    command = simpledialog.askstring('Input', 'Enter the command:', parent=window)
+    if command in ACCEPTED_COMMANDS:
+        answer = messagebox.askyesno('Confirm','Confirm command: ' + command) # Open new box to confirm choice
+        if answer: # answer is a bool
+            # Upload the command to the HASP spreadsheet
+            logging.info('Sent command: \'' + command + '\'')
+            statusText.set('Sent command: \'' + command + '\'')
+            toolsMenuDoNothing()
+    else:
+        logging.info('Command not recognized: \'' + command + '\'')
+        statusText.set('Command not recognized: \'' + command + '\'')
+
+
+def toolsMenuSavePlots():
+    fig.savefig(PLOT_PATH, bbox_inches='tight')
+    logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
+
+def toolsMenuExit():
+    end_log_e(None, None)
 
 # tkinter objects
 width, height = 200, 100
@@ -59,9 +84,16 @@ menu = Menu(window)
 window.config(menu=menu)
 toolsMenu = Menu(menu)
 menu.add_cascade(label='Tools', menu=toolsMenu)
-toolsMenu.add_command(label='Send Command', command=doNothing)
+toolsMenu.add_command(label='Send Command', command=toolsMenuSendCommand)
 toolsMenu.add_separator()
-toolsMenu.add_command(label='Exit', command=doNothing)
+toolsMenu.add_command(label='Save Plots', command=toolsMenuSavePlots)
+toolsMenu.add_separator()
+toolsMenu.add_command(label='Exit', command=toolsMenuExit)
+
+#Create status bar at bottom of GUI so that the terminal does not need to be monitered.
+statusText = StringVar(window)
+statusText.set("Initializing HASP-RTP")
+statusbar = Label(window, textvariable=statusText, bd=1, relief=SUNKEN, anchor=W).pack(side=BOTTOM, fill=X)
 
 # Prevents plots being made for packet num and timestamp
 for i in range(1, len(PACKET_STRUCTURE) + 1):
@@ -72,7 +104,6 @@ for i in range(1, len(PACKET_STRUCTURE) + 1):
     plot_list.append(temp_plot)
     data, = temp_plot.plot([], [], "r")
     hasp_data.append(data)
-
 
 def simple_get(url):
     
@@ -171,7 +202,8 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
         return packet_list, packet_urls
 
     if (set(packet_list).issubset(dir_files)) or packet_list == []: # Checks if new packets need to be downloaded
-        logging.info("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds..\n")
+        logging.info("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds...\n")
+        statusText.set("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds...")
         for _ in range(1000):
             window.update()
             time.sleep(WAIT_TIME/1000) # Wait before checking for a new/updated packet 
@@ -206,64 +238,51 @@ def download(link, fileLocation, fileSize):
     raw = open(DIRECTORY + "/2018_raw_files/" + fileLocation.split('/')[-1], "wb")
     raw.write(res.read())
     raw.close()
-    logging.info(fileLocation.split('/')[-1] + " done")
-
+    logging.info(fileLocation.split('/')[-1] + " [" + fileSize + "] completed.")
+    
 def newDownloadThread(link, fileLocation, fileSize):
     download_thread = threading.Thread(target=download, args=(link,fileLocation,fileSize))
+    threadList.append(download_thread)
     download_thread.start()
     
 def download_data(packet_list, packet_urls):
-
-    logging.info("Downloading packets...\n")
-    for i, packet in enumerate(packet_list):
-        try:
+    try:
+        logging.info("Downloading packets...\n")
+        # Create a thread for downloading each  existing files on the HASP website
+        for i, packet in enumerate(packet_list):    
             packet = packet.split(",")
             packet_name = packet[0]
             packet_size = packet[1] 
             newDownloadThread(packet_urls[i], DIRECTORY + '/2018_raw_files/' + packet_name, packet_size)
-            #logging.info("Downloading " + packet_name + " [" + packet_size + "]...")
-            #res = urllib.request.urlopen(packet_urls[i])
-            #raw = open(DIRECTORY + "/2018_raw_files/" + packet_name, "wb")
-            #raw.write(res.read())
-            #raw.close()
-            
-        except Exception as e:
-            end_log_e(e, packet_name)
 
-    time.sleep(1)
-    for i, packet in enumerate(packet_list):            
+        #Plot all the files
+        for i, packet in enumerate(packet_list):
+            while threadList[i].isAlive(): # Prevents an undownloaded file from being plotted
+                time.sleep(0.1)
             plot_data(packet.split(',')[0])
+            
+        # Save plot once completed
+        fig.savefig(PLOT_PATH, bbox_inches='tight')
+        logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"\n")
+    except Exception as e:
+        end_log_e(e, packet_name)
 
-            #time.sleep(0.1) # Small delay to prevent server spamming
-
-        #except Exception as e:
-          #  end_log_e(e, packet_name)
-
-    # Save plot once completed
-    fig.savefig(PLOT_PATH, bbox_inches='tight')
-    logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"\n")
-
-
+        
 def plot_data(packet_name):
-
     new_data = []
     for i in range(0, len(hasp_data) + 1):
         new_data.append([])
-    
-    logging.info("Updating plot with data from " + packet_name + "...\n")
+    message = "Updating plot with data from " + packet_name
+    logging.info(message)
+    statusText.set(message)
     data_file = open(DIRECTORY + "/2018_raw_files/" + packet_name, "r", errors = "ignore")
-
     for line in data_file:
-        
         data_string = data_file.readline().strip("\n")        
         broken_data_string = data_string.split(",")
-
         if len(broken_data_string) != 7:
             continue
-        
         broken_data_string.pop(-1)
         broken_data_string.pop(-1)
-        
         for i, measurement in enumerate(broken_data_string):
             # Handles possibly corrupted data where a value is not a number, resulting in a conversion error
             try:
@@ -394,7 +413,7 @@ def end_log_e(e, packet_name):
     logging.info("END LOG")
     logging.info("------------------------------------------------------------")
     logging.info("------------------------------------------------------------")
-    sys.exit()
+    sys.exit(0)
 
     
 if __name__  == "__main__":
