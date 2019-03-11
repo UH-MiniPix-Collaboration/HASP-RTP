@@ -17,7 +17,6 @@ from contextlib import closing
 from bs4 import BeautifulSoup
 from datetime import datetime
 from struct import *
-from matplotlib import style
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 #from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
@@ -39,7 +38,7 @@ ACCEPTED_COMMANDS = ['0x01', '0x02', '0x03'] # These are currently dummy command
 # Plotting objects
 fig = plt.gcf()
 # fig.patch.set_facecolor('xkcd:grey') # Changes color of the GUI background
-#style.use("ggplot")
+plt.style.use("fast")
 fig.set_size_inches(12, 10)
 #fig.show()
 plt.rcParams.update({'font.size': 24})
@@ -49,7 +48,7 @@ plot_list = []
 threadList = []
 
 
-# Tkinter tool commands
+# Drop-down menu tool functions
 def toolsMenuDoNothing():
     print('Okay.')
 
@@ -66,11 +65,11 @@ def toolsMenuSendCommand():
         logging.info('Command not recognized: \'' + command + '\'')
         statusText.set('Command not recognized: \'' + command + '\'')
 
-
 def toolsMenuSavePlots():
     fig.savefig(PLOT_PATH, bbox_inches='tight')
     logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
 
+# This currently does not work properly.
 def toolsMenuExit():
     end_log_e(None, None)
 
@@ -106,7 +105,7 @@ for i in range(1, len(PACKET_STRUCTURE) + 1):
     hasp_data.append(data)
 
 def simple_get(url):
-    
+
     try:
         with closing(get(url, stream = True)) as resp:
             if is_good_response(resp):
