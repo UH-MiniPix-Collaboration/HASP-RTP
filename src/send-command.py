@@ -10,7 +10,7 @@ from google.auth.transport.requests import Request
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 # The ID and range of a sample spreadsheet.
-SPREADSHEET_ID = 'PUT_SHEET_ID_HERE'
+SPREADSHEET_ID = 'PUT_SHEET_ID_HERE' # Found in the URL of the Google Sheet
 WRITE_RANGE_NAME = 'Sheet1!D1:D1'
 
 def createService():

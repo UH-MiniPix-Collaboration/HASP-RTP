@@ -1,16 +1,16 @@
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import matplotlib.animation as animation
-import matplotlib.backends.tkagg as tkagg
-import tkinter as tk
-import numpy as np
-import urllib
 import os
 import time
 import sys
 import logging
 import threading
+import urllib
+import tkinter as tk
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.animation as animation
+import matplotlib.backends.tkagg as tkagg
+import numpy as np
 from requests import get
 from requests.exceptions import RequestException
 from contextlib import closing
@@ -65,14 +65,14 @@ def toolsMenuSendCommand():
         logging.info('Command not recognized: \'' + command + '\'')
         statusText.set('Command not recognized: \'' + command + '\'')
         messagebox.showwarning("Warning", "Command not recognized.")
-        
+
 def toolsMenuSavePlots():
-    fig.savefig(PLOT_PATH, bbox_inches='tight')
-    logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
+    saveFigure()
 
 # This currently does not work properly.
 def toolsMenuExit():
     end_log_e(None, None)
+    sys.exit(0)
 
 # tkinter objects
 width, height = 200, 100
@@ -99,7 +99,7 @@ statusbar = Label(window, textvariable=statusText, bd=1, relief=SUNKEN, anchor=W
 for i in range(1, len(PACKET_STRUCTURE) + 1):
     if i == 5 or i == 6 or i == 7:
         continue
-    
+
     temp_plot = fig.add_subplot(PLOT_SQUARE_SIZE, PLOT_SQUARE_SIZE, i)
     plot_list.append(temp_plot)
     data, = temp_plot.plot([], [], "r")
@@ -121,7 +121,7 @@ def simple_get(url):
 
 
 def is_good_response(resp):
-    
+
     content_type= resp.headers["Content-Type"].lower()
     return (resp.status_code == 200
             and content_type is not None
@@ -129,14 +129,14 @@ def is_good_response(resp):
 
 
 def compare_times(t1, t2):
-    
+
     difference = t2 - t1
 
     return difference.days
-    
+
 
 def find_table(html):
-    
+
     logging.info("Searching for table...")
     table = html.find("table")
     logging.info("... table found.")
@@ -146,7 +146,7 @@ def find_table(html):
 
 # Gathers table data that only corresponds to flight
 def read_table(table):
-    
+
     rows = []
     columns = []
     packets = []
@@ -160,14 +160,14 @@ def read_table(table):
 
     else:
         end_log_e("No rows found. Exitting...\n", None)
-        
+
     # Check if columns exist
     logging.info("Searching for columns...")
     if rows[0].get_text() is not "":
         logging.info("... columns found.")
 
     else:
-        end_log_e("No columns found. Exitting...\n", None)        
+        end_log_e("No columns found. Exitting...\n", None)
 
     # Creates a list of packet names and a list of packet urls
     logging.info("Extracting packet metadata...")
@@ -190,9 +190,9 @@ def read_table(table):
             packets.append(packet_string.split(",")[0] + "," + str(float(packet_string.split(",")[2].split(" ")[0])) + " KB") # Adds packet data string to list
             packet_url = url.split("data.php")[0] + columns[0].find_all("a")[0].get("href") # Finds link to download packet
             packet_urls.append(packet_url) # Adds download link to list
-            
+
     logging.info("... completed.\n")
-    
+
     return packets, packet_urls
 
 
@@ -206,7 +206,7 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
         statusText.set("Local repository is up-to-date. Retrying in " + str(WAIT_TIME) + " seconds...")
         for _ in range(1000):
             window.update()
-            time.sleep(WAIT_TIME/1000) # Wait before checking for a new/updated packet 
+            time.sleep(WAIT_TIME/1000) # Wait before checking for a new/updated packet
         #end_log_e(None, None) # I didn't want to create a new function to end the program, so I cheated by using end_log_e()
 
         # Sleeping in the main thread messes with the qt event loop
@@ -221,14 +221,13 @@ def get_new_packets(packet_list, packet_urls, dir_files, last_dir_file):
 
     else:
         logging.info("Downloading updated/missing files...")
-        
         new_packet_list = []
         new_url_list = []
         for i, packet in enumerate(packet_list):
             if packet not in dir_files:
                 new_packet_list.append(packet_list[i])
                 new_url_list.append(packet_urls[i])
-            
+
         return new_packet_list, new_url_list
 
 
@@ -239,35 +238,35 @@ def download(link, fileLocation, fileSize):
     raw.write(res.read())
     raw.close()
     logging.info(fileLocation.split('/')[-1] + " [" + fileSize + "] completed.")
-    
+
 def newDownloadThread(link, fileLocation, fileSize):
     download_thread = threading.Thread(target=download, args=(link,fileLocation,fileSize))
     threadList.append(download_thread)
     download_thread.start()
-    
+
 def download_data(packet_list, packet_urls):
     try:
         logging.info("Downloading packets...\n")
-        # Create a thread for downloading each  existing files on the HASP website
-        for i, packet in enumerate(packet_list):    
+        # Create a thread for downloading each existing file on the HASP website. This prevents an undownloaded file from being 'plotted'
+        for i, packet in enumerate(packet_list):
             packet = packet.split(",")
             packet_name = packet[0]
-            packet_size = packet[1] 
+            packet_size = packet[1]
             newDownloadThread(packet_urls[i], DIRECTORY + '/2018_raw_files/' + packet_name, packet_size)
 
         #Plot all the files
         for i, packet in enumerate(packet_list):
-            while threadList[i].isAlive(): # Prevents an undownloaded file from being plotted
+            while threadList[i].isAlive(): # Prevent an undownloaded file from being plotted
                 time.sleep(0.1)
             plot_data(packet.split(',')[0])
-            
+
         # Save plot once completed
-        fig.savefig(PLOT_PATH, bbox_inches='tight')
-        logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"\n")
+        saveFigure()
+
     except Exception as e:
         end_log_e(e, packet_name)
 
-        
+
 def plot_data(packet_name):
     new_data = []
     for i in range(0, len(hasp_data) + 1):
@@ -277,7 +276,7 @@ def plot_data(packet_name):
     statusText.set(message)
     data_file = open(DIRECTORY + "/2018_raw_files/" + packet_name, "r", errors = "ignore")
     for line in data_file:
-        data_string = data_file.readline().strip("\n")        
+        data_string = data_file.readline().strip("\n")
         broken_data_string = data_string.split(",")
         if len(broken_data_string) != 7:
             continue
@@ -296,18 +295,15 @@ def plot_data(packet_name):
                 new_data[i].append(measurement)
             else:
                 continue
-            
+
             # Plots update every 50 packets
             if len(new_data[-1]) % 50 == 0 and len(new_data[-1]) != 0:
-
                 #hasp_data[-1].set_xdata(np.append(hasp_data[-1].get_xdata(), new_data[-1]))
-
                 #print(len(hasp_data[-1].get_xdata()))
-                
                 for i, sensor in enumerate(PACKET_STRUCTURE):
                     if sensor == "frame" or sensor == "zero" or sensor == "time":
                         continue
-                    
+
                     #print(new_data[i])
                     sensor_plot = plot_list[i]
                     hasp_data[i].set_xdata(np.append(hasp_data[i].get_xdata(), new_data[-1]))
@@ -319,38 +315,39 @@ def plot_data(packet_name):
                     sensor_plot.set_xlim(0, max(hasp_data[0].get_xdata()))
                     sensor_plot.set_ylim(min(hasp_data[i].get_ydata()) * 0.9, max(hasp_data[i].get_ydata()) * 1.1)
                     window.update()
-                
-                fig.tight_layout()                
+
+                # Update the plots with the new data
+                fig.tight_layout()
                 fig.canvas.flush_events()
                 fig.canvas.draw()
-                
+
                 tcanvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH)#.grid(row=0, column=2, sticky='E')
                 tcanvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)#.grid(row=0, column=2, sticky='E')#
 
                 window.update_idletasks()
                 window.update()
-                
+
                 # Empty new_data after every plot update
                 new_data = []
-                
+
                 for i in range(0, len(hasp_data) + 1):
                     new_data.append([])
-                    
 
+
+# Create the required directories for downloads and saves
 def create_dirs():
     dir_files = os.listdir(DIRECTORY)
     if "2018_raw_files" not in dir_files:
         os.makedirs(DIRECTORY + "/2018_raw_files")
-
     if "2018_analysis" not in dir_files:
         os.makedirs(DIRECTORY + "/2018_analysis")
 
 # Finds the last packet in the local repository.
 def get_directory_info():
-    
+
     # Get files in directory
     dir_files = os.listdir(DIRECTORY + "/2018_raw_files")
-    
+
     # Checks if the directory is empty.
     if len(dir_files) == 0:
         return None, None
@@ -358,7 +355,7 @@ def get_directory_info():
     # Sorts files from A - Z
     dir_files.sort()
 
-    # Adds a tag to each file's name specifying the file size 
+    # Adds a tag to each file's name specifying the file size
     for i, dfile in enumerate(dir_files):
         dir_files[i] = dfile + "," + str(float(float(os.path.getsize(DIRECTORY + "/2018_raw_files/" + dir_files[i])) / 1000)) + " KB"
 
@@ -370,15 +367,15 @@ def get_directory_info():
 
 # Controls the sequencing of the processes acquiring and handling the data
 def get_data():
-    
+
     response = simple_get(url)
     html = BeautifulSoup(response, "html.parser")
-    
+
     if response is not None:
 
         # Find most recently downloaded data packet
         directory_files, last_packet = get_directory_info()
-        
+
         # Check if a table exists
         packet_table = find_table(html)
 
@@ -394,28 +391,31 @@ def get_data():
         #fig.tight_layout()
         #fig.canvas.flush_events()
         #fig.canvas.draw()
-        
+
+def saveFigure():
+    fig.savefig(PLOT_PATH, bbox_inches='tight')
+    logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
+
+def endLog():
+    logging.info("------------------------------------------------------------")
+    logging.info("------------------------------------------------------------")
+    logging.info("END LOG")
+    logging.info("------------------------------------------------------------")
+    logging.info("------------------------------------------------------------")
+
 
 # Ends the log with exception e
 def end_log_e(e, packet_name):
     logging.info("------------------------------------------------------------")
     if packet_name is not None:
         logging.error("Error handling packet: " + packet_name)
-        
     if e is not None:
         logging.error(e)
-
-    fig.savefig(PLOT_PATH, bbox_inches='tight')
-    logging.info("Figure saved to \"" + PLOT_PATH.split("/")[-1] + "\"")
-        
-    logging.info("------------------------------------------------------------")
-    logging.info("------------------------------------------------------------")
-    logging.info("END LOG")
-    logging.info("------------------------------------------------------------")
-    logging.info("------------------------------------------------------------")
+    saveFigure()
+    endLog()
     sys.exit(0)
 
-    
+
 if __name__  == "__main__":
     try:
         create_dirs()
@@ -424,7 +424,7 @@ if __name__  == "__main__":
         dir_files = os.listdir(DIRECTORY + "/2018_raw_files")
         for f in dir_files:
             os.remove(DIRECTORY + "/2018_raw_files/" + f)
-        
+
         # Setup logger
         logging.basicConfig(level = logging.DEBUG,
                             format = "%(asctime)s %(name)+12s: %(levelname)-8s %(message)s",
@@ -437,7 +437,7 @@ if __name__  == "__main__":
         console.setFormatter(formatter)
         logging.getLogger('').addHandler(console)
         logging.getLogger("matplotlib").setLevel(logging.WARNING) # Suppresses matplotlib debug
-        
+
         logging.info("------------------------------------------------------------")
         logging.info("------------------------------------------------------------")
         logging.info("BEGIN LOG")
@@ -448,23 +448,12 @@ if __name__  == "__main__":
 
         while True:
             get_data()
-            
-        logging.info("------------------------------------------------------------")
-        logging.info("------------------------------------------------------------")
-        logging.info("END LOG")
-        logging.info("------------------------------------------------------------")
-        logging.info("------------------------------------------------------------")
-        
+        endLog()
+
+    except SystemExit:
+        endLog()
     except KeyboardInterrupt:
-        fig.savefig(PLOT_PATH, bbox_inches='tight')
-        logging.info("Figure saved to \"" + PLOT_PATH + "\"")
-
+        saveFigure()
         logging.info("Keyboard Interrupt. Exitting...\n")
-        logging.info("------------------------------------------------------------")
-        logging.info("------------------------------------------------------------")
-        logging.info("END LOG")
-        logging.info("------------------------------------------------------------")
-        logging.info("------------------------------------------------------------")
-
     except Exception as e:
         end_log_e(e, None)
